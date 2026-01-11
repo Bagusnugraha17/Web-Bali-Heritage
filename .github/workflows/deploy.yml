@@ -7,30 +7,24 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload to VPS
-        uses: appleboy/scp-action@v0.1.7
+      - name: Upload files via rsync over SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_KEY }}
           port: ${{ secrets.VPS_PORT }}
-
-          source: "./*"
-          target: "/var/www/html"
-
-          rm: true
-          overwrite: true
-
-          exclude: |
-            .git*
-            .github*
-            **/.git/**
-            **/.github/**
-            README.md
+          script: |
+            rsync -avz --delete \
+              --exclude='.git/' \
+              --exclude='.github/' \
+              --exclude='README.md' \
+              ./ /var/www/html/
 
       - name: Reload Apache
         uses: appleboy/ssh-action@v1.0.3
