@@ -12,7 +12,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload files via rsync over SSH
+      # Upload isi repo ke folder sementara di VPS
+      - name: Upload to VPS (/tmp/web)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "./*"
+          target: "/tmp/web"
+          overwrite: true
+          rm: true
+
+      # Pindahkan dari /tmp/web ke /var/www/html pakai sudo rsync
+      - name: Deploy to /var/www/html
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -20,18 +34,14 @@ jobs:
           key: ${{ secrets.VPS_KEY }}
           port: ${{ secrets.VPS_PORT }}
           script: |
-            rsync -avz --delete \
+            sudo rsync -av --delete \
               --exclude='.git/' \
               --exclude='.github/' \
               --exclude='README.md' \
-              ./ /var/www/html/
+              /tmp/web/ /var/www/html/
 
-      - name: Reload Apache
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script: |
+            sudo chown -R www-data:www-data /var/www/html
+            sudo find /var/www/html -type d -exec chmod 755 {} \;
+            sudo find /var/www/html -type f -exec chmod 644 {} \;
+
             sudo systemctl reload apache2
